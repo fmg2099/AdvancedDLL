@@ -1,7 +1,12 @@
 #include "pch.h"
 #include "MiDLL.h"
 
+using json = nlohmann::json;
 
+//Definiciones de los endpoints
+#define API_NAMES "http://monsterballgo.com/api/names"
+
+//Declaracion completa de la esctructura de datos que queremos pasarle al EXE host
 struct StringVector {
 	std::vector<std::string> data;
 };
@@ -19,6 +24,7 @@ const char* stringtable[] = {
 	"Uva",
 };
 
+//estructura para guardar la respuesta GET y su tamaño en bytes 
 struct memory {
 	char* response;
 	size_t size;
@@ -41,6 +47,8 @@ static size_t WriteCallbackCurl(char* contents, size_t size, size_t nmemb, void*
 	mem->response[mem->size] = 0;
 	return realsize;
 }
+
+//callback para recuper
 
 DLL1_API void funcSinParametros()
 {
@@ -117,6 +125,7 @@ DLL1_API void testMsgCallback()
 	}).detach();
 }
 
+//implementada como es visto en https://curl.se/libcurl/c/CURLOPT_WRITEFUNCTION.html
 DLL1_API int httpGet(const char* url, httpCallback cb)
 {
 	if (cb == nullptr || url == nullptr || url[0] == '\0')
@@ -128,7 +137,7 @@ DLL1_API int httpGet(const char* url, httpCallback cb)
 		return -2; // Error: URL must start with http or https
 	}
 
-	//como es visto en https://curl.se/libcurl/c/CURLOPT_WRITEFUNCTION.html
+	
 	CURLcode res;
 	CURL* curl = curl_easy_init();
 	if (!curl) 
@@ -160,15 +169,93 @@ DLL1_API int httpGet(const char* url, httpCallback cb)
 		}
 		curl_easy_cleanup(curl);
 	}
-
 	return 0;
+}
+
+DLL1_API int GetAuthorizedNames(httpStringListCallback cb)
+{
+	//basicamente hace una peticion HTTP, procesa el string recibido como JSON
+	//lo convierte a un STringVector y manda llamar el callback que establecio el usuario
+	if (cb == nullptr)
+		return -1;
+
+	CURLcode res;
+	CURL* curl = curl_easy_init();
+	if (!curl)
+	{
+		return -3; // Error: Failed to initialize CURL
+	}
+	else
+	{
+		g_httpSLCB = cb;
+		//establecer parametros de la peticion
+		curl_easy_setopt(curl, CURLOPT_URL, API_NAMES);
+		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallbackCurl);
+		struct memory response = { 0 };
+		curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void*)&response);
+		//haer la peticion
+		res = curl_easy_perform(curl);
+		std::vector<std::string> namesVector;
+
+		if (res == CURLE_OK)
+		{
+			try
+			{
+				//interpretar como json
+				json j = json::parse(response.response);
+				int n = j["names"].size();
+				for (int i = 0;i < n; i++)
+				{
+					std::cout << "nombre autorizado: " << j["names"][i].get<std::string>() << std::endl;
+					namesVector.push_back(j["names"][i].get<std::string>());
+				}
+
+			}
+			catch (std::exception e)
+			{
+				std::cout << "Error al parsear json" << e.what() << std::endl;
+			}
+		}
+		else
+		{
+			std::cout << "Error al hacer peticion: " << curl_easy_strerror(res) << std::endl;
+			return -4;
+		}
+
+	}
 }
 
 DLL1_API StringVector* getStringList()
 {
 	StringVector* sv = new StringVector();
+	//ejemplo de retorno con datos
 	sv->data = { "hugo", "paco", "luis"};
 	return sv;
 }
+
+
+DLL1_API size_t getStringListSize(const StringVector* sv)
+{
+	if (sv != nullptr)
+	{
+		return sv->data.size();
+	}
+	return 0;
+}
+
+
+
+DLL1_API const char* getStringAt(const StringVector* sv , size_t index)
+{
+	if (sv != nullptr)  //salvaguardas
+	{
+		if (index < sv->data.size()) //salvaguarda de tamano
+			return sv->data[index].c_str();
+		else
+			return nullptr;
+	}
+	return nullptr;
+}
+
 
 

@@ -35,8 +35,14 @@ int main()
 	int resultado = funcConParametros(3, 4);
 	std::cout << "El resultado de funcConParametros es: " << resultado << std::endl;
 
-	//prueba de funcion que retorna vector de strings
+	//prueba de funcion que retorna un apuntador opaco a una lista de strings
 	StringVector* list = getStringList();
+	size_t n = getStringListSize(list);
+	std::cout << "tamano de la lista retornada por la dll: " << n << std::endl;
+	for (int i = 0; i < n; i++)
+	{
+		std::cout << "\tValor en " << n << " : " << getStringAt(list, i);
+	}
 	
 
 	g_event = CreateEvent(NULL, FALSE, FALSE, NULL);
@@ -44,6 +50,7 @@ int main()
 	int ret = setWriteCallback(cbTest);
 	//imprimimos el valor devuelto para comprobar que se ha registrado correctamente
 	std::cout << "setWriteCallback retorna: " << ret << std::endl;
+
 	//Registramos el callback de char* ante la DLL
 	ret = setMsgCallback(msgTest);
 	g_event2 = CreateEventW(NULL, FALSE, FALSE, NULL);
@@ -67,12 +74,26 @@ int main()
 
 	//hacemos una llamada http get
 	const char* url = "http://monsterballgo.com/api/names";
+	//httpGet espera un callback, aqui lo estamos estableciendo directamente
 	httpGet(url, [](const char* data, size_t size)
 		{
-			std::cout << "callback size:  " << size << std::endl;
-			std::cout << "data: " << data << std::endl;
-	});
+			std::cout << "Bytes recibidos:  " << size << std::endl;
+			std::cout << "respuesta del servidor: " << data << std::endl;
+	}
+	);
 	std::cout << "httpGet llamada" << std::endl;
+
+	//prueba para obtener nombres autorizados de la API web
+	StringVector  *namesVector;
+	GetAuthorizedNames([](StringVector* sv, size_t size)
+		{
+			std::cout << "GetAuthorizedNames callback llamado con " << size << " nombres" << std::endl;
+			for (size_t i = 0; i < size; i++)
+			{
+				std::cout << "\tNombre autorizado: " << getStringAt(sv, i) << std::endl;
+			}
+		}
+	);
 
 	//para evitar que se cierre la aplicacion antes de que se complete la operacion asincrona
 	if (g_event != NULL)

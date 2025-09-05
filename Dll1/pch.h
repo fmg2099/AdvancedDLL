@@ -15,6 +15,7 @@
 #include <thread>
 #include <chrono>
 #include "curl/curl.h"
+#include "nlohmann/json.hpp"
 #include <vector>
 #include <string>
 #endif //PCH_H
